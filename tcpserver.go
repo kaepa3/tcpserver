@@ -15,7 +15,7 @@ type ConfigData struct {
 }
 
 func main() {
-	setting := settingGet()
+	setting := settingGet("config.json")
 	tcpAddr, err := net.ResolveTCPAddr("tcp", setting.Port)
 	checkError(err)
 	listner, err := net.ListenTCP("tcp", tcpAddr)
@@ -29,8 +29,8 @@ func main() {
 	}
 }
 
-func settingGet() ConfigData {
-	file, err := ioutil.ReadFile("config.json")
+func settingGet(configPath string) ConfigData {
+	file, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		panic(err)
 	}
