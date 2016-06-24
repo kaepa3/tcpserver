@@ -48,14 +48,15 @@ func handleClient(conn net.Conn) {
 	conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 	fmt.Println("client accept!")
 	messageBuf := make([]byte, 1024)
-	messageLen, err := conn.Read(messageBuf)
-	checkError(err)
+	for {
+		messageLen, err := conn.Read(messageBuf)
+		checkError(err)
+		message := string(messageBuf[:messageLen])
+		message = message + " too!"
 
-	message := string(messageBuf[:messageLen])
-	message = message + " too!"
-
-	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-	conn.Write([]byte(message))
+		conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+		conn.Write([]byte(message))
+	}
 }
 
 func checkError(err error) {
