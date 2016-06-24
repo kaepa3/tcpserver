@@ -1,12 +1,16 @@
 package main
 
 import (
+	"container/list"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
+	"strings"
 	"time"
+
+	"github.com/kaepa3/cycle"
 )
 
 // ConfigData is json format
@@ -45,18 +49,51 @@ func settingGet(configPath string) ConfigData {
 
 func handleClient(conn net.Conn) {
 	defer conn.Close()
-	conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	que := list.New()
 	fmt.Println("client accept!")
-	messageBuf := make([]byte, 1024)
+	obj := cycle.CycleProc{Time: 1000, Flg: true, Action: addFile}
+	cycle.DoProcess(obj)
 	for {
-		messageLen, err := conn.Read(messageBuf)
-		checkError(err)
-		message := string(messageBuf[:messageLen])
-		message = message + " too!"
-
-		conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-		conn.Write([]byte(message))
+		revcivePacket(conn)
+		sendPacket(conn, que)
+		time.Sleep(100 * time.Millisecond)
 	}
+}
+
+func addFile() {
+	fmt.Println("call back")
+}
+
+func revcivePacket(conn net.Conn) {
+	messageBuf := make([]byte, 1024)
+	conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+	messageLen, err := conn.Read(messageBuf)
+	if 0 == revcheckErr(err) {
+		message := string(messageBuf[:messageLen])
+		fmt.Println("comming -", message)
+	}
+}
+
+func sendPacket(conn net.Conn, que *list.List) {
+	if que.Len() != 0 {
+		message := que.Remove(que.Front())
+		conn.SetWriteDeadline(time.Now().Add(100 * time.Millisecond))
+		switch buff := message.(type) {
+		case []byte:
+			conn.Write(buff)
+		}
+	}
+}
+
+func revcheckErr(err error) (retVal int) {
+	retVal = 0
+	if err != nil {
+		if strings.Index(err.Error(), "timeout") == -1 {
+			checkError(err)
+		}
+		retVal = -1
+	}
+	return
 }
 
 func checkError(err error) {
