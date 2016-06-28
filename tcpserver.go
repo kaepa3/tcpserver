@@ -13,14 +13,23 @@ import (
 	"github.com/kaepa3/cycle"
 )
 
+var sendQue = list.New()
+var config ConfigData
+
+type HealthFile struct {
+	Time int    `json:"time"`
+	File string `json:"file"`
+}
+
 // ConfigData is json format
 type ConfigData struct {
-	Port string `json:"port"`
+	Port   string     `json:"port"`
+	Health HealthFile `json:"health"`
 }
 
 func main() {
-	setting := settingGet("config.json")
-	tcpAddr, err := net.ResolveTCPAddr("tcp", setting.Port)
+	config = settingGet("config.json")
+	tcpAddr, err := net.ResolveTCPAddr("tcp", config.Port)
 	checkError(err)
 	listner, err := net.ListenTCP("tcp", tcpAddr)
 	checkError(err)
@@ -49,19 +58,23 @@ func settingGet(configPath string) ConfigData {
 
 func handleClient(conn net.Conn) {
 	defer conn.Close()
-	que := list.New()
 	fmt.Println("client accept!")
-	obj := cycle.CycleProc{Time: 1000, Flg: true, Action: addFile}
+	obj := cycle.CycleProc{Time: config.Health.Time, Flg: true, Action: addFile}
+	obj.Action()
 	cycle.DoProcess(obj)
 	for {
 		revcivePacket(conn)
-		sendPacket(conn, que)
+		sendPacket(conn)
 		time.Sleep(100 * time.Millisecond)
 	}
 }
 
 func addFile() {
-	fmt.Println("call back")
+	fmt.Println("call!")
+	contents, err := ioutil.ReadFile(config.Health.File) // ReadFileの戻り値は []byte
+	if err != nil {
+		sendQue.PushBack(contents)
+	}
 }
 
 func revcivePacket(conn net.Conn) {
@@ -74,13 +87,14 @@ func revcivePacket(conn net.Conn) {
 	}
 }
 
-func sendPacket(conn net.Conn, que *list.List) {
-	if que.Len() != 0 {
-		message := que.Remove(que.Front())
+func sendPacket(conn net.Conn) {
+	if sendQue.Len() != 0 {
+		message := sendQue.Remove(sendQue.Front())
 		conn.SetWriteDeadline(time.Now().Add(100 * time.Millisecond))
 		switch buff := message.(type) {
 		case []byte:
 			conn.Write(buff)
+			fmt.Println("Send")
 		}
 	}
 }
