@@ -120,6 +120,7 @@ func sendPacket(conn net.Conn) {
 		case []byte:
 			conn.Write(buff)
 			logging("Send\n" + btext.TParseAry(buff))
+
 		}
 	}
 }
