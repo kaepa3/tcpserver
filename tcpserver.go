@@ -13,6 +13,8 @@ import (
 	"github.com/kaepa3/cycle"
 )
 
+var que list.List
+
 // ConfigData is json format
 type ConfigData struct {
 	Port string `json:"port"`
@@ -49,19 +51,20 @@ func settingGet(configPath string) ConfigData {
 
 func handleClient(conn net.Conn) {
 	defer conn.Close()
-	que := list.New()
 	fmt.Println("client accept!")
 	obj := cycle.CycleProc{Time: 1000, Flg: true, Action: addFile}
 	cycle.DoProcess(obj)
 	for {
 		revcivePacket(conn)
-		sendPacket(conn, que)
+		sendPacket(conn)
 		time.Sleep(100 * time.Millisecond)
 	}
 }
 
 func addFile() {
 	fmt.Println("call back")
+	data := []byte{1, 2, 3, 4}
+	que.PushBack(data)
 }
 
 func revcivePacket(conn net.Conn) {
@@ -74,7 +77,7 @@ func revcivePacket(conn net.Conn) {
 	}
 }
 
-func sendPacket(conn net.Conn, que *list.List) {
+func sendPacket(conn net.Conn) {
 	if que.Len() != 0 {
 		message := que.Remove(que.Front())
 		conn.SetWriteDeadline(time.Now().Add(100 * time.Millisecond))
