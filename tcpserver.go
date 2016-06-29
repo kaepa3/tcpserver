@@ -37,7 +37,7 @@ func initLogger() {
 		    <format id="con" format="%Msg%n" />
 		</formats>
 		<outputs formatid="main">
-			<rollingfile filename="log.log" type="size" maxsize="102400" maxrolls="1" formatid = "main"/>
+			<rollingfile filename="rev.log" type="size" maxsize="102400" maxrolls="1" formatid = "main"/>
 			<console formatid = "con"/>
 		</outputs>
 	</seelog>`
@@ -55,6 +55,8 @@ func logging(text string) {
 func main() {
 	initLogger()
 	config = settingGet("config.json")
+	fmt.Println("setting:", config)
+
 	tcpAddr, err := net.ResolveTCPAddr("tcp", config.Port)
 	checkError(err)
 	listner, err := net.ListenTCP("tcp", tcpAddr)
@@ -86,6 +88,8 @@ func handleClient(conn net.Conn) {
 	defer conn.Close()
 	fmt.Println("client accept!")
 	obj := cycle.CycleProc{Time: config.Health.Time, Flg: true, Action: addFile}
+	conn.SetWriteDeadline(time.Now().Add(100 * time.Millisecond))
+	conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
 	obj.Action()
 	cycle.DoProcess(obj)
 	for {
@@ -104,23 +108,21 @@ func addFile() {
 
 func revcivePacket(conn net.Conn) {
 	messageBuf := make([]byte, 1024)
-	conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
 	messageLen, err := conn.Read(messageBuf)
+
 	if 0 == revcheckErr(err) {
 		message := string(btext.TParseAry(messageBuf[:messageLen]))
-		logging("ooming\n" + message)
+		logging("Receive=>\n" + message)
 	}
 }
 
 func sendPacket(conn net.Conn) {
 	if sendQue.Len() != 0 {
 		message := sendQue.Remove(sendQue.Front())
-		conn.SetWriteDeadline(time.Now().Add(100 * time.Millisecond))
 		switch buff := message.(type) {
 		case []byte:
 			conn.Write(buff)
-			logging("Send\n" + btext.TParseAry(buff))
-
+			logging("Send=>\n" + btext.TParseAry(buff))
 		}
 	}
 }
@@ -129,6 +131,7 @@ func revcheckErr(err error) (retVal int) {
 	retVal = 0
 	if err != nil {
 		if strings.Index(err.Error(), "timeout") == -1 {
+			fmt.Println("err!!!")
 			checkError(err)
 		}
 		retVal = -1

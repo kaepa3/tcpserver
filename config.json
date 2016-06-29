@@ -1,7 +1,7 @@
 {
-  "port": ":50000",
+  "port": ":52000",
   "health" : {
-    "file" : "senddata.txt",
+    "file" : "health.txt",
     "time" : 5000
   }
 }
