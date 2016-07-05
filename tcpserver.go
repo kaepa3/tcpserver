@@ -38,7 +38,7 @@ func initLogger() {
 		    <format id="con" format="%Msg%n" />
 		</formats>
 		<outputs formatid="main">
-			<rollingfile filename="log.log" type="size" maxsize="102400" maxrolls="1" formatid = "main"/>
+			<rollingfile filename="rev.log" type="size" maxsize="102400" maxrolls="1" formatid = "main"/>
 			<console formatid = "con"/>
 		</outputs>
 	</seelog>`
@@ -56,6 +56,8 @@ func logging(text string) {
 func main() {
 	initLogger()
 	config = settingGet("config.json")
+	fmt.Println("setting:", config)
+
 	tcpAddr, err := net.ResolveTCPAddr("tcp", config.Port)
 	checkError(err)
 	listner, err := net.ListenTCP("tcp", tcpAddr)
@@ -120,6 +122,7 @@ func revcivePacket(conn net.Conn) {
 	messageBuf := make([]byte, 1024)
 	conn.SetReadDeadline(time.Now().Add(10 * time.Millisecond))
 	messageLen, err := conn.Read(messageBuf)
+
 	if 0 == revcheckErr(err) {
 		message := string(btext.TParseAry(messageBuf[:messageLen]))
 		logging("[rev]->\n" + message)
@@ -134,7 +137,6 @@ func sendPacket(conn net.Conn) {
 		case []byte:
 			conn.Write(buff)
 			logging("[Send]->\n" + btext.TParseAry(buff))
-
 		}
 	}
 }
@@ -143,6 +145,7 @@ func revcheckErr(err error) (retVal int) {
 	retVal = 0
 	if err != nil {
 		if strings.Index(err.Error(), "timeout") == -1 {
+			fmt.Println("err!!!")
 			checkError(err)
 		}
 		retVal = -1
