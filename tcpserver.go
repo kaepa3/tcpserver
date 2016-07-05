@@ -12,6 +12,7 @@ import (
 
 	log "github.com/cihub/seelog"
 	"github.com/kaepa3/btext"
+	"github.com/kaepa3/cmdbk"
 	"github.com/kaepa3/cycle"
 )
 
@@ -85,18 +86,31 @@ func settingGet(configPath string) ConfigData {
 func handleClient(conn net.Conn) {
 	defer conn.Close()
 	fmt.Println("client accept!")
-	obj := cycle.CycleProc{Time: config.Health.Time, Flg: true, Action: addFile}
+	obj := cycle.CycleProc{Time: config.Health.Time, Flg: true, Action: addFileWrapper}
 	obj.Action()
 	cycle.DoProcess(obj)
+	cmdbk.Start(callBack)
 	for {
 		revcivePacket(conn)
 		sendPacket(conn)
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 	}
 }
+func callBack(text string) {
+	addFile(text)
+}
 
-func addFile() {
-	contents := btext.BParseFile(config.Health.File)
+func addFileWrapper() {
+	addFile(config.Health.File)
+}
+
+func addFile(text string) {
+	_, err := os.Stat(text)
+	if err != nil {
+		fmt.Println(err, text)
+		return
+	}
+	contents := btext.BParseFile(text)
 	if len(contents) != 0 {
 		sendQue.PushBack(contents)
 	}
@@ -104,22 +118,22 @@ func addFile() {
 
 func revcivePacket(conn net.Conn) {
 	messageBuf := make([]byte, 1024)
-	conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+	conn.SetReadDeadline(time.Now().Add(10 * time.Millisecond))
 	messageLen, err := conn.Read(messageBuf)
 	if 0 == revcheckErr(err) {
 		message := string(btext.TParseAry(messageBuf[:messageLen]))
-		logging("ooming\n" + message)
+		logging("[rev]->\n" + message)
 	}
 }
 
 func sendPacket(conn net.Conn) {
 	if sendQue.Len() != 0 {
 		message := sendQue.Remove(sendQue.Front())
-		conn.SetWriteDeadline(time.Now().Add(100 * time.Millisecond))
+		conn.SetWriteDeadline(time.Now().Add(10 * time.Millisecond))
 		switch buff := message.(type) {
 		case []byte:
 			conn.Write(buff)
-			logging("Send\n" + btext.TParseAry(buff))
+			logging("[Send]->\n" + btext.TParseAry(buff))
 
 		}
 	}
