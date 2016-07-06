@@ -63,7 +63,7 @@ func main() {
 	listner, err := net.ListenTCP("tcp", tcpAddr)
 	checkError(err)
 	for {
-		conn, err := listner.Accept()
+		conn, err := listner.AcceptTCP()
 		if err != nil {
 			continue
 		}
@@ -85,20 +85,27 @@ func settingGet(configPath string) ConfigData {
 	return datasets
 }
 
-func handleClient(conn net.Conn) {
-	defer conn.Close()
+func handleClient(conn *net.TCPConn) {
 	fmt.Println("client accept!")
+
 	obj := cycle.CycleProc{Time: config.Health.Time, Flg: true, Action: addFileWrapper}
 	obj.Action()
 	cycle.DoProcess(obj)
 	cmdbk.Start(callBack)
-	for {
+	conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+    conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
+    conn.SetKeepAlive(true)
+	defer conn.Close()
+ 	for {
 		revcivePacket(conn)
 		sendPacket(conn)
-		time.Sleep(10 * time.Millisecond)
+        
+		time.Sleep(30 * time.Millisecond)
 	}
 }
+
 func callBack(text string) {
+	fmt.Println("file:", text)
 	addFile(text)
 }
 
@@ -107,11 +114,6 @@ func addFileWrapper() {
 }
 
 func addFile(text string) {
-	_, err := os.Stat(text)
-	if err != nil {
-		fmt.Println(err, text)
-		return
-	}
 	contents := btext.BParseFile(text)
 	if len(contents) != 0 {
 		sendQue.PushBack(contents)
@@ -120,9 +122,7 @@ func addFile(text string) {
 
 func revcivePacket(conn net.Conn) {
 	messageBuf := make([]byte, 1024)
-	conn.SetReadDeadline(time.Now().Add(10 * time.Millisecond))
 	messageLen, err := conn.Read(messageBuf)
-
 	if 0 == revcheckErr(err) {
 		message := string(btext.TParseAry(messageBuf[:messageLen]))
 		logging("[rev]->\n" + message)
@@ -130,15 +130,15 @@ func revcivePacket(conn net.Conn) {
 }
 
 func sendPacket(conn net.Conn) {
-	if sendQue.Len() != 0 {
-		message := sendQue.Remove(sendQue.Front())
-		conn.SetWriteDeadline(time.Now().Add(10 * time.Millisecond))
-		switch buff := message.(type) {
-		case []byte:
-			conn.Write(buff)
-			logging("[Send]->\n" + btext.TParseAry(buff))
-		}
-	}
+    conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
+    if sendQue.Len() != 0 {
+        message := sendQue.Remove(sendQue.Front())
+        switch buff := message.(type) {
+        case []byte:
+            conn.Write(buff)
+            logging("[Send]->\n" + btext.TParseAry(buff))
+        }
+    }
 }
 
 func revcheckErr(err error) (retVal int) {
@@ -156,6 +156,5 @@ func revcheckErr(err error) (retVal int) {
 func checkError(err error) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "fatal: error: %s", err.Error())
-		os.Exit(1)
 	}
 }

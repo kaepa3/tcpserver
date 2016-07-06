@@ -1,2 +1,4 @@
 /.editorconfig
 /*.log
+/*.exe
+/*.log.*
