@@ -4,15 +4,20 @@ import (
 	"testing"
 )
 
-func ReadConfigFile_test(t *testing.T) {
-	setting := settingGet("config.json")
-	if setting.Port != ":50000" {
+func TestReadConfigFile(t *testing.T) {
+	config = settingGet("config.json")
+	if config.Port != ":54000" {
 		t.Error("cant Read by json")
 	}
-	if setting.Health.Time == 0 {
+	if config.Health.Time == 0 {
 		t.Error("cant Read health config")
 	}
-	if setting.Health.File == "" {
+	if config.Health.File == "" {
 		t.Error("cant Read health config")
+	}
+	// insertFile chk
+	insertFile(4)
+	if sendQue.Len() == 0 {
+		t.Error("can't ADD!!")
 	}
 }

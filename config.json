@@ -1,7 +1,13 @@
 {
   "port": ":54000",
-  "health" : {
-    "file" : "health.txt",
-    "time" : 1000
-  }
+  "health": {
+    "file": "health.txt",
+    "time": 1000
+  },
+  "responce": [
+    {
+      "code": 4,
+      "file": "health.txt"
+    }
+  ]
 }

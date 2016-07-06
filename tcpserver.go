@@ -14,6 +14,7 @@ import (
 	"github.com/kaepa3/btext"
 	"github.com/kaepa3/cmdbk"
 	"github.com/kaepa3/cycle"
+	"github.com/kaepa3/tcpserver/localpackage"
 )
 
 var sendQue = list.New()
@@ -24,10 +25,16 @@ type HealthFile struct {
 	File string `json:"file"`
 }
 
+type ResponceConfig struct {
+	Code uint   `json:"code"`
+	File string `json:"file"`
+}
+
 // ConfigData is json format
 type ConfigData struct {
-	Port   string     `json:"port"`
-	Health HealthFile `json:"health"`
+	Port     string           `json:"port"`
+	Health   HealthFile       `json:"health"`
+	Responce []ResponceConfig `json:"responce"`
 }
 
 func initLogger() {
@@ -93,13 +100,13 @@ func handleClient(conn *net.TCPConn) {
 	cycle.DoProcess(obj)
 	cmdbk.Start(callBack)
 	conn.SetReadDeadline(time.Now().Add(1 * time.Second))
-    conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
-    conn.SetKeepAlive(true)
+	conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
+	conn.SetKeepAlive(true)
 	defer conn.Close()
- 	for {
+	for {
 		revcivePacket(conn)
 		sendPacket(conn)
-        
+
 		time.Sleep(30 * time.Millisecond)
 	}
 }
@@ -121,24 +128,38 @@ func addFile(text string) {
 }
 
 func revcivePacket(conn net.Conn) {
-	messageBuf := make([]byte, 1024)
+	messageBuf := make([]byte, 2048)
 	messageLen, err := conn.Read(messageBuf)
 	if 0 == revcheckErr(err) {
-		message := string(btext.TParseAry(messageBuf[:messageLen]))
+		data := messageBuf[:messageLen]
+		message := string(btext.TParseAry(data))
 		logging("[rev]->\n" + message)
+		code, err := dispatch.GetCode(data)
+		if err == nil {
+			insertFile(uint(code))
+		}
+	}
+}
+
+func insertFile(code uint) {
+	for _, v := range config.Responce {
+		if v.Code == code {
+			addFile(v.File)
+			break
+		}
 	}
 }
 
 func sendPacket(conn net.Conn) {
-    conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
-    if sendQue.Len() != 0 {
-        message := sendQue.Remove(sendQue.Front())
-        switch buff := message.(type) {
-        case []byte:
-            conn.Write(buff)
-            logging("[Send]->\n" + btext.TParseAry(buff))
-        }
-    }
+	conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
+	if sendQue.Len() != 0 {
+		message := sendQue.Remove(sendQue.Front())
+		switch buff := message.(type) {
+		case []byte:
+			conn.Write(buff)
+			logging("[Send]->\n" + btext.TParseAry(buff))
+		}
+	}
 }
 
 func revcheckErr(err error) (retVal int) {
