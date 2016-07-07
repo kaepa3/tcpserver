@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,7 +28,7 @@ type HealthFile struct {
 }
 
 type ResponceConfig struct {
-	Code uint   `json:"code"`
+	Code string `json:"code"`
 	File string `json:"file"`
 }
 
@@ -143,11 +145,30 @@ func revcivePacket(conn net.Conn) {
 
 func insertFile(code uint) {
 	for _, v := range config.Responce {
-		if v.Code == code {
-			addFile(v.File)
-			break
+		vCode, err := exchangeCode(v.Code)
+		if err == nil {
+			if vCode == code {
+				addFile(v.File)
+				break
+			}
 		}
 	}
+}
+
+func exchangeCode(codeStr string) (uint, error) {
+	if len(codeStr) > 2 && codeStr[0:2] == "0x" {
+		val, err := strconv.ParseUint(codeStr, 0, 32)
+		if err == nil {
+			return uint(val), nil
+		}
+	}
+	if regexp.MustCompile(`[0-9]`).Match([]byte(codeStr)) {
+		val, err := strconv.ParseUint(codeStr, 10, 32)
+		if err == nil {
+			return uint(val), nil
+		}
+	}
+	return 0, fmt.Errorf("error occured")
 }
 
 func sendPacket(conn net.Conn) {
