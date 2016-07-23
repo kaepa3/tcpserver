@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+    "sync"
+
 
 	log "github.com/cihub/seelog"
 	"github.com/kaepa3/btext"
@@ -21,6 +23,7 @@ import (
 
 var sendQue = list.New()
 var config ConfigData
+var m = new(sync.Mutex)
 
 type HealthFile struct {
 	Time int    `json:"time"`
@@ -58,9 +61,6 @@ func initLogger() {
 	}
 	log.ReplaceLogger(logger)
 }
-func logging(text string) {
-	log.Info(text)
-}
 
 func main() {
 	initLogger()
@@ -68,9 +68,13 @@ func main() {
 	fmt.Println("setting:", config)
 
 	tcpAddr, err := net.ResolveTCPAddr("tcp", config.Port)
-	checkError(err)
+	if err != nil {
+		log.Error(err.Error())
+	}
 	listner, err := net.ListenTCP("tcp", tcpAddr)
-	checkError(err)
+	if err != nil {
+		log.Error(err.Error())
+	}
 	for {
 		conn, err := listner.AcceptTCP()
 		if err != nil {
@@ -101,15 +105,11 @@ func handleClient(conn *net.TCPConn) {
 	obj.Action()
 	cycle.DoProcess(obj)
 	cmdbk.Start(callBack)
-	conn.SetReadDeadline(time.Now().Add(1 * time.Second))
-	conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
-	conn.SetKeepAlive(true)
 	defer conn.Close()
 	for {
 		revcivePacket(conn)
 		sendPacket(conn)
-
-		time.Sleep(30 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
@@ -125,22 +125,29 @@ func addFileWrapper() {
 func addFile(text string) {
 	contents := btext.BParseFile(text)
 	if len(contents) != 0 {
-		sendQue.PushBack(contents)
+        m.Lock()
+        defer m.Unlock()
+		sendQue.PushBack(contents)        
 	}
 }
 
 func revcivePacket(conn net.Conn) {
-	messageBuf := make([]byte, 2048)
+	messageBuf := make([]byte, 4058)
+	conn.SetReadDeadline(time.Now().Add(1 * time.Second))
 	messageLen, err := conn.Read(messageBuf)
 	if 0 == revcheckErr(err) {
+	    fmt.Println("len:", messageLen)
 		data := messageBuf[:messageLen]
 		message := string(btext.TParseAry(data))
-		logging("[rev]->\n" + message)
+		log.Info("[rev]->\n" + message)
 		code, err := dispatch.GetCode(data)
 		if err == nil {
 			insertFile(uint(code))
+		} else {
+			log.Info("エラー")
 		}
 	}
+
 }
 
 func insertFile(code uint) {
@@ -172,13 +179,19 @@ func exchangeCode(codeStr string) (uint, error) {
 }
 
 func sendPacket(conn net.Conn) {
-	conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
+    m.Lock()
+    defer m.Unlock()
 	if sendQue.Len() != 0 {
 		message := sendQue.Remove(sendQue.Front())
 		switch buff := message.(type) {
 		case []byte:
-			conn.Write(buff)
-			logging("[Send]->\n" + btext.TParseAry(buff))
+			conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
+			_, err := conn.Write(buff)
+			if err != nil {
+                println("Write to server failed:", err.Error())
+                os.Exit(1)
+            }
+            log.Info("[Send]->\n" + btext.TParseAry(buff))
 		}
 	}
 }
@@ -187,16 +200,9 @@ func revcheckErr(err error) (retVal int) {
 	retVal = 0
 	if err != nil {
 		if strings.Index(err.Error(), "timeout") == -1 {
-			fmt.Println("err!!!")
-			checkError(err)
+			log.Info("err!!!", err.Error())
 		}
 		retVal = -1
 	}
-	return
-}
-
-func checkError(err error) {
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "fatal: error: %s", err.Error())
-	}
+    return
 }
