@@ -10,9 +10,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
-    "sync"
-
 
 	log "github.com/cihub/seelog"
 	"github.com/kaepa3/btext"
@@ -125,9 +124,9 @@ func addFileWrapper() {
 func addFile(text string) {
 	contents := btext.BParseFile(text)
 	if len(contents) != 0 {
-        m.Lock()
-        defer m.Unlock()
-		sendQue.PushBack(contents)        
+		m.Lock()
+		defer m.Unlock()
+		sendQue.PushBack(contents)
 	}
 }
 
@@ -136,7 +135,7 @@ func revcivePacket(conn net.Conn) {
 	conn.SetReadDeadline(time.Now().Add(1 * time.Second))
 	messageLen, err := conn.Read(messageBuf)
 	if 0 == revcheckErr(err) {
-	    fmt.Println("len:", messageLen)
+		fmt.Println("len:", messageLen)
 		data := messageBuf[:messageLen]
 		message := string(btext.TParseAry(data))
 		log.Info("[rev]->\n" + message)
@@ -179,8 +178,8 @@ func exchangeCode(codeStr string) (uint, error) {
 }
 
 func sendPacket(conn net.Conn) {
-    m.Lock()
-    defer m.Unlock()
+	m.Lock()
+	defer m.Unlock()
 	if sendQue.Len() != 0 {
 		message := sendQue.Remove(sendQue.Front())
 		switch buff := message.(type) {
@@ -188,10 +187,10 @@ func sendPacket(conn net.Conn) {
 			conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
 			_, err := conn.Write(buff)
 			if err != nil {
-                println("Write to server failed:", err.Error())
-                os.Exit(1)
-            }
-            log.Info("[Send]->\n" + btext.TParseAry(buff))
+				println("Write to server failed:", err.Error())
+				os.Exit(1)
+			}
+			log.Info("[Send]->\n" + btext.TParseAry(buff))
 		}
 	}
 }
@@ -204,5 +203,5 @@ func revcheckErr(err error) (retVal int) {
 		}
 		retVal = -1
 	}
-    return
+	return
 }
