@@ -1,7 +1,14 @@
 {
-  "port": "128.11.1.251:54000",
-  "health" : {
-    "file" : "health.txt",
-    "time" : 1000
-  }
+  "port": ":54000",
+  "time_grant": true,
+  "health": {
+    "file": "health.txt",
+    "time": 100000
+  },
+  "responce": [
+    {
+      "code": "4",
+      "file": "health.txt"
+    }
+  ]
 }

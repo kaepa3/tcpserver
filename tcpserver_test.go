@@ -2,6 +2,7 @@ package main
 
 import (
 	"testing"
+	"time"
 )
 
 func TestExchangeCode(t *testing.T) {
@@ -43,4 +44,25 @@ func TestReadConfigFile(t *testing.T) {
 	if sendQue.Len() == 0 {
 		t.Error("can't ADD!!")
 	}
+}
+
+func TestGrantTime(t *testing.T) {
+	buffer := make([]byte, 20)
+	grantTime(buffer)
+	now := time.Now()
+	if buffer[2] != byte(now.Month()) {
+		t.Error("not equal month")
+	} else if buffer[3] != byte(now.Day()) {
+		t.Error("not equal month")
+	}
+	/* second*/
+	naget := buffer[8:19]
+	grantTime(naget)
+	now = time.Now()
+	if buffer[10] != byte(now.Month()) {
+		t.Error("not equal month")
+	} else if buffer[11] != byte(now.Day()) {
+		t.Error("not equal month")
+	}
+
 }

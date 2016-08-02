@@ -36,9 +36,10 @@ type ResponceConfig struct {
 
 // ConfigData is json format
 type ConfigData struct {
-	Port     string           `json:"port"`
-	Health   HealthFile       `json:"health"`
-	Responce []ResponceConfig `json:"responce"`
+	Port      string           `json:"port"`
+	TimeGrant bool             `json:"time_grant"`
+	Health    HealthFile       `json:"health"`
+	Responce  []ResponceConfig `json:"responce"`
 }
 
 func initLogger() {
@@ -106,7 +107,9 @@ func handleClient(conn *net.TCPConn) {
 	cmdbk.Start(callBack)
 	defer conn.Close()
 	for {
-		revcivePacket(conn)
+		if false == revcivePacket(conn) {
+			break
+		}
 		sendPacket(conn)
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -130,14 +133,15 @@ func addFile(text string) {
 	}
 }
 
-func revcivePacket(conn net.Conn) {
+func revcivePacket(conn net.Conn) (val bool) {
+	val = true
 	messageBuf := make([]byte, 4058)
 	conn.SetReadDeadline(time.Now().Add(1 * time.Second))
 	messageLen, err := conn.Read(messageBuf)
 	if 0 == revcheckErr(err) {
-		fmt.Println("len:", messageLen)
 		data := messageBuf[:messageLen]
-		message := string(btext.TParseAry(data))
+		log.Info(data[0])
+		message := btext.TParseAry(data)
 		log.Info("[rev]->\n" + message)
 		code, err := dispatch.GetCode(data)
 		if err == nil {
@@ -145,8 +149,10 @@ func revcivePacket(conn net.Conn) {
 		} else {
 			log.Info("エラー")
 		}
+	} else {
+		val = false
 	}
-
+	return
 }
 
 func insertFile(code uint) {
@@ -204,4 +210,18 @@ func revcheckErr(err error) (retVal int) {
 		retVal = -1
 	}
 	return
+}
+
+func grantTime(buffer []byte) {
+	if len(buffer) < 8 {
+		return
+	}
+	now := time.Now()
+	buffer[0] = byte(int(now.Year()) / 100)
+	buffer[1] = byte(int(now.Year()) % 100)
+	buffer[2] = byte(now.Month())
+	buffer[3] = byte(now.Day())
+	buffer[4] = byte(now.Hour())
+	buffer[5] = byte(now.Minute())
+	buffer[6] = byte(now.Second())
 }
