@@ -75,6 +75,8 @@ func main() {
 	if err != nil {
 		log.Error(err.Error())
 	}
+
+	log.Info("start" + strings.Repeat("*", 20))
 	for {
 		conn, err := listner.AcceptTCP()
 		if err != nil {
@@ -107,9 +109,7 @@ func handleClient(conn *net.TCPConn) {
 	cmdbk.Start(callBack)
 	defer conn.Close()
 	for {
-		if false == revcivePacket(conn) {
-			break
-		}
+		revcivePacket(conn)
 		sendPacket(conn)
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -133,26 +133,22 @@ func addFile(text string) {
 	}
 }
 
-func revcivePacket(conn net.Conn) (val bool) {
-	val = true
+func revcivePacket(conn net.Conn) {
 	messageBuf := make([]byte, 4058)
 	conn.SetReadDeadline(time.Now().Add(1 * time.Second))
 	messageLen, err := conn.Read(messageBuf)
 	if 0 == revcheckErr(err) {
 		data := messageBuf[:messageLen]
-		log.Info(data[0])
-		message := btext.TParseAry(data)
-		log.Info("[rev]->\n" + message)
+
+		message := string(btext.TParseAry(data))
 		code, err := dispatch.GetCode(data)
+		log.Info("[rev:0x" + fmt.Sprintf("%x", code) + "]->\n" + message)
 		if err == nil {
 			insertFile(uint(code))
 		} else {
 			log.Info("エラー")
 		}
-	} else {
-		val = false
 	}
-	return
 }
 
 func insertFile(code uint) {
@@ -160,9 +156,12 @@ func insertFile(code uint) {
 		vCode, err := exchangeCode(v.Code)
 		if err == nil {
 			if vCode == code {
+				fmt.Println("responce->", v.File)
 				addFile(v.File)
 				break
 			}
+		} else {
+			log.Info("変換エラー：" + v.Code)
 		}
 	}
 }
@@ -186,7 +185,7 @@ func exchangeCode(codeStr string) (uint, error) {
 func sendPacket(conn net.Conn) {
 	m.Lock()
 	defer m.Unlock()
-	if sendQue.Len() != 0 {
+	for sendQue.Len() != 0 {
 		message := sendQue.Remove(sendQue.Front())
 		switch buff := message.(type) {
 		case []byte:

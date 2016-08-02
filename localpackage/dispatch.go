@@ -6,8 +6,8 @@ import (
 	"fmt"
 )
 
-const idStart int = 4
-const idEnd int = 8
+const idStart int = 8
+const idEnd int = 12
 
 func GetCode(rev []byte) (uint32, error) {
 	if idEnd > len(rev) {
@@ -15,7 +15,7 @@ func GetCode(rev []byte) (uint32, error) {
 	}
 	var val uint32
 	dataAry := rev[idStart:idEnd]
-	err2 := binary.Read(bytes.NewBuffer(dataAry), binary.LittleEndian, &val)
+	err2 := binary.Read(bytes.NewBuffer(dataAry), binary.BigEndian, &val)
 	if err2 != nil {
 		return 0, fmt.Errorf("exchange error")
 	}
