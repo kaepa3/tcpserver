@@ -10,9 +10,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
-    "sync"
-
 
 	log "github.com/cihub/seelog"
 	"github.com/kaepa3/btext"
@@ -75,6 +74,8 @@ func main() {
 	if err != nil {
 		log.Error(err.Error())
 	}
+
+	log.Info("start" + strings.Repeat("*", 20))
 	for {
 		conn, err := listner.AcceptTCP()
 		if err != nil {
@@ -125,9 +126,9 @@ func addFileWrapper() {
 func addFile(text string) {
 	contents := btext.BParseFile(text)
 	if len(contents) != 0 {
-        m.Lock()
-        defer m.Unlock()
-		sendQue.PushBack(contents)        
+		m.Lock()
+		defer m.Unlock()
+		sendQue.PushBack(contents)
 	}
 }
 
@@ -136,18 +137,16 @@ func revcivePacket(conn net.Conn) {
 	conn.SetReadDeadline(time.Now().Add(1 * time.Second))
 	messageLen, err := conn.Read(messageBuf)
 	if 0 == revcheckErr(err) {
-	    fmt.Println("len:", messageLen)
 		data := messageBuf[:messageLen]
 		message := string(btext.TParseAry(data))
-		log.Info("[rev]->\n" + message)
 		code, err := dispatch.GetCode(data)
+		log.Info("[rev:0x" + fmt.Sprintf("%x", code) + "]->\n" + message)
 		if err == nil {
 			insertFile(uint(code))
 		} else {
 			log.Info("エラー")
 		}
 	}
-
 }
 
 func insertFile(code uint) {
@@ -155,9 +154,12 @@ func insertFile(code uint) {
 		vCode, err := exchangeCode(v.Code)
 		if err == nil {
 			if vCode == code {
+				fmt.Println("responce->", v.File)
 				addFile(v.File)
 				break
 			}
+		} else {
+			log.Info("変換エラー：" + v.Code)
 		}
 	}
 }
@@ -179,19 +181,19 @@ func exchangeCode(codeStr string) (uint, error) {
 }
 
 func sendPacket(conn net.Conn) {
-    m.Lock()
-    defer m.Unlock()
-	if sendQue.Len() != 0 {
+	m.Lock()
+	defer m.Unlock()
+	for sendQue.Len() != 0 {
 		message := sendQue.Remove(sendQue.Front())
 		switch buff := message.(type) {
 		case []byte:
 			conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
 			_, err := conn.Write(buff)
 			if err != nil {
-                println("Write to server failed:", err.Error())
-                os.Exit(1)
-            }
-            log.Info("[Send]->\n" + btext.TParseAry(buff))
+				println("Write to server failed:", err.Error())
+				os.Exit(1)
+			}
+			log.Info("[Send]->\n" + btext.TParseAry(buff))
 		}
 	}
 }
@@ -204,5 +206,5 @@ func revcheckErr(err error) (retVal int) {
 		}
 		retVal = -1
 	}
-    return
+	return
 }
