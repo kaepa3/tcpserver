@@ -190,6 +190,9 @@ func sendPacket(conn net.Conn) {
 		message := sendQue.Remove(sendQue.Front())
 		switch buff := message.(type) {
 		case []byte:
+			if config.TimeGrant {
+				grantTime(buff[36:42])
+			}
 			conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
 			_, err := conn.Write(buff)
 			if err != nil {
