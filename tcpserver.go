@@ -189,8 +189,8 @@ func sendPacket(conn net.Conn) {
 		message := sendQue.Remove(sendQue.Front())
 		switch buff := message.(type) {
 		case []byte:
-			if config.TimeGrant {
-				grantTime(buff[36:42])
+			if config.TimeGrant == true {
+				grantTime(buff[36:44])
 			}
 			conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
 			_, err := conn.Write(buff)
@@ -219,8 +219,12 @@ func grantTime(buffer []byte) {
 		return
 	}
 	now := time.Now()
-	buffer[0] = byte(int(now.Year()) / 100)
-	buffer[1] = byte(int(now.Year()) % 100)
+
+	hi, _ := strconv.ParseInt(strconv.Itoa(int(now.Year())/100), 16, 16)
+	lo, _ := strconv.ParseInt(strconv.Itoa(int(now.Year())%100), 16, 16)
+	buffer[0] = byte(hi)
+	buffer[1] = byte(lo)
+
 	buffer[2] = byte(now.Month())
 	buffer[3] = byte(now.Day())
 	buffer[4] = byte(now.Hour())
